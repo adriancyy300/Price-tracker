@@ -1,0 +1,32 @@
+import os, re, time, requests
+from playwright.sync_api import sync_playwright
+
+URL = "PASTE_FULL_PRODUCT_PAGE_URL"
+SELECTOR = "PASTE_PRICE_SELECTOR"   # see note below
+TARGET = 100.0
+TG_TOKEN = "Your_token"
+TG_CHAT_ID = "chat_id"
+
+def get_price(page):
+    page.goto(URL, wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_selector(SELECTOR, timeout=15000)
+    text = page.inner_text(SELECTOR)
+    return float(re.sub(r"[^\d.]", "", text))
+
+def notify(msg):
+    r = requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                      data={"chat_id": TG_CHAT_ID, "text": msg}, timeout=15)
+    print("Telegram:", r.status_code, r.text)
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    while True:
+        try:
+            price = get_price(page)
+            print("Current price:", price)
+            if price <= TARGET:
+                notify(f"Price dropped to RM{price}! {URL}")
+        except Exception as e:
+            print("Error:", e)
+        time.sleep(3600)
